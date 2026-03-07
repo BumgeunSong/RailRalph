@@ -1,28 +1,23 @@
-# Handoff: create-monorepo design-review
+# Handoff: create-monorepo specs
 
 ## What was done
-- Reviewed `design.md` from 5 perspectives: Architecture, Security, Quality, Testability, Integration
-- Found 7 Important findings and 15 Minor findings (no Critical)
-- Updated `design.md` to address all 7 Important findings (added D7, D8, Phase 2 success criteria, verification script, Vercel ignoreCommand, clarified --squash trade-off, trimmed open questions)
-- Re-reviewed the updated design (Round 2) — all Important findings resolved, only Minor items remain
-- Wrote `design-review.md` with full findings, resolutions, and accepted trade-offs
-- Fixed step numbering issue in migration plan (duplicate step 18)
+- Generated spec files for both capabilities listed in the proposal
+- `monorepo-structure`: 7 requirements covering workspace config, directory layout, package naming, root scripts, security defaults (.npmrc), phantom dependency audit, lockfile strategy, and deployment reconnection
+- `history-preservation`: 4 requirements covering git subtree for main app, direct copy for admin/MCP, repository archiving conditions, and rollback window preservation
 
 ## Files changed
-- `openspec/changes/create-monorepo/design.md` — **modified**: added D7 (.npmrc security), D8 (package naming), Phase 2 success criteria, verification script, Vercel ignoreCommand step, clarified --squash caveat, resolved 2 open questions, fixed step numbering
-- `openspec/changes/create-monorepo/design-review.md` — **created**: full 5-perspective review with 2 rounds
+- `openspec/changes/create-monorepo/specs/monorepo-structure/spec.md` — **created**
+- `openspec/changes/create-monorepo/specs/history-preservation/spec.md` — **created**
 - `openspec/changes/create-monorepo/handoff.md` — **updated**: this file
 
 ## Key decisions
-- **D7 added**: Root `.npmrc` with `ignore-scripts=true`, `shamefully-hoist=false`, `strict-peer-dependencies=true` for supply chain security
-- **D8 added**: Each app's `package.json` `name` must be `web`, `admin`, `mcp` to match `pnpm --filter` commands
-- **--squash clarified**: Goals reworded from "preserve history" to "maintain traceability" — per-commit blame only available in archived original repo with --squash
-- **Vercel ignoreCommand**: Added as required step in Phase 3 to prevent unnecessary builds across apps
-- **Verification script**: Concrete bash script added for automated migration validation
+- All spec requirements use ADDED delta (no existing specs were modified — confirmed `openspec/specs/` is empty)
+- `monorepo-structure` captures all structural and operational behaviors: workspace wiring, naming conventions, security defaults, phantom dep audit, deployment ignoreCommand
+- `history-preservation` captures the git integration strategy including the --squash trade-off, direct copy for admin/MCP, archiving conditions, and rollback window
+- Scenarios align directly with the Phase 2 success criteria and testability notes from the design
 
 ## Notes for next session
-- Design and design-review are complete — next step is writing **specs** (`specs.md`) and **tasks** (`tasks.md`)
-- 4 open questions remain that need team input before Phase 0: pnpm version, deployment platform, CI inventory, env var migration
-- The migration plan (Phase 0–4, 22 steps) maps directly to implementation tasks
-- D7's `ignore-scripts=true` may need per-app overrides if apps use post-install scripts (prisma generate, husky install) — flag during task planning
-- Phantom dependency audit (Phase 2) remains the highest-risk step
+- Next step is **tasks** — create `openspec/changes/create-monorepo/tasks.md` mapping the 22-step migration plan to actionable implementation tasks
+- 4 open questions still need team input before Phase 0: pnpm version to pin, deployment platform confirmation, CI/CD inventory, env var migration strategy
+- D7's `ignore-scripts=true` may need per-app `.npmrc` overrides for post-install scripts (prisma generate, husky install) — flag as a task during Phase 1/2
+- Phantom dependency audit (Phase 2) is the highest-risk step — the tasks file should treat it as a blocking gate before Phase 3
