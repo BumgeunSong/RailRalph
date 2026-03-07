@@ -2,9 +2,9 @@
 set -euo pipefail
 
 #
-# OpenRalph Installer
+# BashRalph Installer
 #
-# Checks prerequisites and installs the `openralph` command.
+# Checks prerequisites and installs the `bashralph` command.
 #
 
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
@@ -54,19 +54,19 @@ fi
 
 # --- Install ---
 echo ""
-echo "Installing openralph to $BIN_DIR..."
+echo "Installing bashralph to $BIN_DIR..."
 mkdir -p "$BIN_DIR"
 
 # Create wrapper script that resolves its real path
-cat > "$BIN_DIR/openralph" << WRAPPER
+cat > "$BIN_DIR/bashralph" << WRAPPER
 #!/usr/bin/env bash
-# OpenRalph wrapper — resolves real path and execs run.sh
-OPENRALPH_HOME="$SCRIPT_DIR"
-exec "\$OPENRALPH_HOME/run.sh" "\$@"
+# BashRalph wrapper — resolves real path and execs run.sh
+BASHRALPH_HOME="$SCRIPT_DIR"
+exec "\$BASHRALPH_HOME/run.sh" "\$@"
 WRAPPER
-chmod +x "$BIN_DIR/openralph"
+chmod +x "$BIN_DIR/bashralph"
 
-echo "Installed: $BIN_DIR/openralph"
+echo "Installed: $BIN_DIR/bashralph"
 echo ""
 echo "Make sure $BIN_DIR is in your PATH:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""

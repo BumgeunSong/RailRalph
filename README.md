@@ -1,12 +1,12 @@
-# OpenRalph
+# BashRalph
 
 Multi-session Claude pipeline orchestrator for OpenSpec-based development workflows.
 
-## What is OpenRalph?
+## What is BashRalph?
 
-OpenRalph chains `claude -p` sessions through a **planning → apply → verify** lifecycle for structured development. It orchestrates 13+ Claude sessions using pure bash with zero runtime dependencies, driving changes through design, implementation, verification, and pull request creation.
+BashRalph chains `claude -p` sessions through a **planning → apply → verify** lifecycle for structured development. It orchestrates 13+ Claude sessions using pure bash with zero runtime dependencies, driving changes through design, implementation, verification, and pull request creation.
 
-The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. OpenRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
+The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. BashRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
 
 Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specification-driven development.
 
@@ -23,27 +23,27 @@ Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specif
 
 ```bash
 # Install
-git clone https://github.com/your-org/openralph.git
-cd OpenRalph
+git clone https://github.com/your-org/bashralph.git
+cd BashRalph
 make install
 
 # Run from your project directory
 cd /path/to/your-project
-openralph my-change-name 'Brief description of the change'
+bashralph my-change-name 'Brief description of the change'
 ```
 
-OpenRalph will:
+BashRalph will:
 1. Create an OpenSpec artifact at `openspec/changes/my-change-name/`
 2. Run 6 planning sessions (proposal, design, specs, tasks)
 3. Apply changes in batches with type safety gates
 4. Verify and create a pull request
 5. Generate a retrospective
 
-Logs are written to `.openralph/logs/$RUN_ID/` for full auditability.
+Logs are written to `.bashralph/logs/$RUN_ID/` for full auditability.
 
 ## Configuration
 
-Create `.openralph.config.sh` in your project root. All variables are optional with sensible defaults.
+Create `.bashralph.config.sh` in your project root. All variables are optional with sensible defaults.
 
 ### Skills and Validation
 
@@ -60,14 +60,14 @@ Create `.openralph.config.sh` in your project root. All variables are optional w
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `OPENRALPH_PROJECT_DIR` | Auto-detected (git root) | Override project directory |
-| `OPENRALPH_LOG_DIR` | `$PROJECT_DIR/.openralph/logs/$RUN_ID` | Override log directory |
+| `BASHRALPH_PROJECT_DIR` | Auto-detected (git root) | Override project directory |
+| `BASHRALPH_LOG_DIR` | `$PROJECT_DIR/.bashralph/logs/$RUN_ID` | Override log directory |
 | `MODEL_PLANNING` | `sonnet` | Model for planning sessions |
 | `MODEL_REVIEW` | `opus` | Model for review sessions |
 | `MODEL_APPLY` | `sonnet` | Model for apply sessions |
 | `MODEL_VERIFY` | `sonnet` | Model for verify sessions |
 
-Example `.openralph.config.sh`:
+Example `.bashralph.config.sh`:
 
 ```bash
 export DESIGN_SKILLS="architecture design-review"
@@ -120,10 +120,10 @@ Output: Merged PR, finalized OpenSpec artifact, full audit trail.
 
 ## Logs and State
 
-OpenRalph writes full logs to `.openralph/logs/$RUN_ID/`:
+BashRalph writes full logs to `.bashralph/logs/$RUN_ID/`:
 
 ```
-.openralph/logs/
+.bashralph/logs/
 └── RUN_ID/
     ├── plan/
     │   ├── 01-proposal.log
@@ -150,10 +150,10 @@ Logs are **never deleted** — they form a complete audit trail of the change li
 
 ## .gitignore
 
-Add `.openralph/` to your project's `.gitignore`:
+Add `.bashralph/` to your project's `.gitignore`:
 
 ```gitignore
-.openralph/
+.bashralph/
 ```
 
 ## Commands
@@ -161,38 +161,38 @@ Add `.openralph/` to your project's `.gitignore`:
 ### Run a Change
 
 ```bash
-openralph <change-name> '<brief description>'
+bashralph <change-name> '<brief description>'
 ```
 
 ### Resume a Run
 
 ```bash
-openralph resume <RUN_ID>
+bashralph resume <RUN_ID>
 ```
 
 ### View Logs
 
 ```bash
-openralph logs <RUN_ID>
+bashralph logs <RUN_ID>
 ```
 
 ### List Runs
 
 ```bash
-openralph list
+bashralph list
 ```
 
 ## Design Principles
 
-**Reliability through structure:** OpenRalph relies on OpenSpec to provide a shared source of truth. Each phase produces artifacts that feed the next; failures are logged with full context for resumption.
+**Reliability through structure:** BashRalph relies on OpenSpec to provide a shared source of truth. Each phase produces artifacts that feed the next; failures are logged with full context for resumption.
 
-**Long-running agent best practices:** Inspired by [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), OpenRalph:
+**Long-running agent best practices:** Inspired by [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), BashRalph:
 - Breaks work into discrete sessions with clear inputs/outputs
 - Validates between phases (type gates, spec alignment checks)
 - Logs everything for auditability and resumption
 - Injects context-appropriate skills at each phase
 
-**Pure bash, zero dependencies:** No Python, Node.js runtime, or external orchestration. OpenRalph is a shell script that invokes standard CLI tools.
+**Pure bash, zero dependencies:** No Python, Node.js runtime, or external orchestration. BashRalph is a shell script that invokes standard CLI tools.
 
 ## Based On
 

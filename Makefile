@@ -10,4 +10,4 @@ test:
 	./tests/test-harness.sh
 
 uninstall:
-	rm -f "$${HOME}/.local/bin/openralph"
+	rm -f "$${HOME}/.local/bin/bashralph"

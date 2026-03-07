@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #
-# OpenRalph — Multi-Session Claude Pipeline Orchestrator
+# BashRalph — Multi-Session Claude Pipeline Orchestrator
 #
 # Orchestrates OpenSpec-based development workflows using separate Claude Code CLI sessions.
 # Each phase runs as a fresh `claude -p` invocation — no shared conversation memory.
@@ -14,8 +14,8 @@ set -euo pipefail
 HARNESS_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 resolve_project_dir() {
-  if [ -n "${OPENRALPH_PROJECT_DIR:-}" ]; then
-    (cd -P "$OPENRALPH_PROJECT_DIR" && pwd) || { echo "ERROR: OPENRALPH_PROJECT_DIR '$OPENRALPH_PROJECT_DIR' not found" >&2; exit 1; }
+  if [ -n "${BASHRALPH_PROJECT_DIR:-}" ]; then
+    (cd -P "$BASHRALPH_PROJECT_DIR" && pwd) || { echo "ERROR: BASHRALPH_PROJECT_DIR '$BASHRALPH_PROJECT_DIR' not found" >&2; exit 1; }
     return
   fi
   local dir
@@ -27,7 +27,7 @@ resolve_project_dir() {
     fi
     dir="$(dirname "$dir")"
   done
-  echo "ERROR: No git repository found. Run from a project directory or set OPENRALPH_PROJECT_DIR." >&2
+  echo "ERROR: No git repository found. Run from a project directory or set BASHRALPH_PROJECT_DIR." >&2
   exit 1
 }
 
@@ -35,7 +35,7 @@ PROJECT_DIR="$(resolve_project_dir)"
 export PROJECT_DIR
 
 # --- Config File (parse, don't source) ---
-CONFIG_FILE="$PROJECT_DIR/.openralph.config.sh"
+CONFIG_FILE="$PROJECT_DIR/.bashralph.config.sh"
 if [ -f "$CONFIG_FILE" ]; then
   while IFS='=' read -r key value; do
     value="${value%\"}"
@@ -89,7 +89,7 @@ MAX_APPLY_RETRIES="${MAX_APPLY_RETRIES:-2}"
 
 # --- Logging ---
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
-LOG_DIR="${OPENRALPH_LOG_DIR:-$PROJECT_DIR/.openralph/logs/$RUN_ID}"
+LOG_DIR="${BASHRALPH_LOG_DIR:-$PROJECT_DIR/.bashralph/logs/$RUN_ID}"
 mkdir -p "$LOG_DIR"
 chmod 700 "$LOG_DIR"
 CHECKPOINT_FILE="$LOG_DIR/checkpoint"
@@ -147,7 +147,7 @@ git_ensure_committed() {
   status=$(cd "$PROJECT_DIR" && git status --porcelain)
   if [ -n "$status" ]; then
     log "GIT SAFETY: Agent left uncommitted changes after '$phase' — creating safety commit"
-    (cd "$PROJECT_DIR" && git add -A -- ${SAFETY_COMMIT_PATHS:-openspec/} && git commit -m "openralph($CHANGE_NAME): safety commit after $phase [uncommitted work]") 2>&1 | tee -a "$LOG_DIR/harness.log" || true
+    (cd "$PROJECT_DIR" && git add -A -- ${SAFETY_COMMIT_PATHS:-openspec/} && git commit -m "bashralph($CHANGE_NAME): safety commit after $phase [uncommitted work]") 2>&1 | tee -a "$LOG_DIR/harness.log" || true
   fi
 }
 
@@ -304,7 +304,7 @@ trap 'log "INTERRUPTED — cleaning up..."; git_cleanup_tags; exit 130' INT TERM
 # Initialize
 # ============================================================
 log "=========================================="
-log "  OPENRALPH START"
+log "  BASHRALPH START"
 log "=========================================="
 log "Change:     $CHANGE_NAME"
 log "Brief:      $BRIEF"
@@ -562,13 +562,13 @@ git_cleanup_tags
 
 log ""
 log "=========================================="
-log "  OPENRALPH COMPLETE"
+log "  BASHRALPH COMPLETE"
 log "=========================================="
 log "Total sessions: $total_sessions"
 log "Logs:           $LOG_DIR"
 
 echo ""
-echo "=== OpenRalph Summary ==="
+echo "=== BashRalph Summary ==="
 echo "Change:     $CHANGE_NAME"
 echo "Sessions:   $total_sessions (6 planning + $actual_sessions_run apply/verify + $closing_sessions closing)"
 echo "Log dir:    $LOG_DIR"
