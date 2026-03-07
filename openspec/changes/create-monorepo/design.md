@@ -24,7 +24,7 @@ All three share the same Supabase/Firebase backend but have no shared code. They
 
 ### Goals
 - Colocate all three apps in a single GitHub repository with pnpm workspace structure
-- Preserve the main app's git commit history via `git subtree add`
+- Maintain traceability to the main app's git history via `git subtree add` (note: with `--squash`, per-commit blame is only available in the archived original repo; without `--squash`, full commit graph is merged into the monorepo)
 - Enable per-app commands from the monorepo root (`pnpm --filter <app> dev`)
 - Establish an empty `packages/` directory as a placeholder for future shared code
 - Archive original repos (keeping history readable) after migration is verified
@@ -61,6 +61,8 @@ All three share the same Supabase/Firebase backend but have no shared code. They
 git subtree add --prefix=apps/web https://github.com/org/DailyWritingFriends.git main --squash
 ```
 The `--squash` flag collapses all history into one commit in the monorepo, avoiding a bloated graph while still being traceable to the original repo. Without `--squash`, the full graph is merged, which is noisier but more complete. **Recommended default: `--squash`**, unless the team needs full per-commit blame across the rewrite boundary.
+
+**Important caveat**: With `--squash`, `git log apps/web/` and `git blame apps/web/<file>` only show the squash commit — per-commit history is not available within the monorepo itself. It remains accessible in the archived original repo. If per-commit blame within the monorepo is required, omit `--squash`.
 
 **Alternative considered**: Copy all three apps without history. Simpler, but loses the most valuable history. Rejected for the main app; accepted for admin/MCP.
 
@@ -111,6 +113,31 @@ The `--squash` flag collapses all history into one commit in the monorepo, avoid
 
 ---
 
+### D7: Root `.npmrc` with security defaults
+
+**Decision**: Create a root `.npmrc` with `ignore-scripts=true` and explicit registry configuration.
+
+**Rationale**: A monorepo aggregates dependencies from three apps, increasing the supply chain attack surface. `ignore-scripts=true` prevents post-install scripts from running automatically — scripts can be opted into explicitly per-package when needed. This is a security baseline, not a blocker.
+
+**Configuration**:
+```ini
+ignore-scripts=true
+shamefully-hoist=false
+strict-peer-dependencies=true
+```
+
+---
+
+### D8: Workspace package naming convention
+
+**Decision**: Each app's `package.json` `name` field must match the directory name used in `pnpm --filter` commands: `web`, `admin`, `mcp`.
+
+**Rationale**: The design uses `pnpm --filter web dev` throughout. pnpm's `--filter` matches against the `name` field in `package.json`, not the directory path. If the existing apps have names like `daily-writing-friends` or `admin-daily-writing-friends`, the filter commands won't work as documented. Renaming the `name` field is a low-risk change with no functional impact.
+
+**Alternative**: Use directory-based filtering (`pnpm --filter ./apps/web`). This avoids renaming but is more verbose and less ergonomic.
+
+---
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
@@ -151,18 +178,26 @@ The `--squash` flag collapses all history into one commit in the monorepo, avoid
 13. Run each app's test suite under pnpm
 14. Commit any `package.json` fixes
 
+**Success criteria for Phase 2** — all must pass before proceeding:
+- `pnpm install` completes without errors from the monorepo root
+- Each app's dev server starts and renders its initial page (or, for MCP, responds to a health check)
+- Each app's existing test suite passes: `pnpm --filter <app> test`
+- Each app builds successfully: `pnpm --filter <app> build`
+- No unresolved import errors in any app
+
 ### Phase 3: CI/CD reconnection (blocking)
 15. Update Vercel (or deployment platform) to point to new repo:
     - Main app: root directory = `apps/web`
     - Admin: root directory = `apps/admin`
 16. Update any CI pipelines (GitHub Actions, etc.) with new paths
-17. Verify a deployment succeeds from the new repo on a preview branch
+17. Configure Vercel's `ignoreCommand` per-app to skip builds when only other apps changed (e.g., `git diff --quiet HEAD^ HEAD -- apps/web/` for the web app). Without this, every push triggers builds for all three apps.
+18. Verify a deployment succeeds from the new repo on a preview branch
 
 ### Phase 4: Cutover
-18. Verify all apps start and deploy correctly from the monorepo
-19. Archive the three original repos on GitHub
-20. Update any internal links, Notion docs, or bookmarks pointing to old repos
-21. Notify team of new setup and `pnpm` requirement (`corepack enable`)
+19. Verify all apps start and deploy correctly from the monorepo
+20. Archive the three original repos on GitHub
+21. Update any internal links, Notion docs, or bookmarks pointing to old repos
+22. Notify team of new setup and `pnpm` requirement (`corepack enable`)
 
 ### Rollback strategy
 - Original repos remain live until Phase 4 — rollback is possible at any point before archiving by reverting to original repos
@@ -173,12 +208,15 @@ The `--squash` flag collapses all history into one commit in the monorepo, avoid
 
 ## Open Questions
 
-1. **Which pnpm version to pin?** Should be decided and set in `packageManager` field before migration. Latest stable pnpm 9.x is recommended.
-2. **Which deployment platform?** The plan assumes Vercel, but the actual platform for each app should be confirmed. If apps use different platforms, reconnection steps differ.
-3. **CI/CD configuration**: Do any of the three apps have active GitHub Actions or other CI? If yes, their configs must be updated in Phase 3. This needs to be inventoried before starting.
-4. **`.npmrc` configuration**: pnpm may need `.npmrc` settings (e.g., `shamefully-hoist=false` is the default — confirm this is intentional and doesn't break any app).
-5. **Environment variables**: Do Vercel environment variables need to be reconfigured for the new repo, or do they migrate automatically? Confirm before Phase 4.
-6. **Squash vs. full history for main app**: Confirm team preference before running `git subtree add`. This decision cannot be reversed without rerunning the subtree import.
+*Resolved in this design:*
+- ~~`.npmrc` configuration~~ → Addressed in D7: root `.npmrc` with `ignore-scripts=true`, `shamefully-hoist=false`, `strict-peer-dependencies=true`.
+- ~~Squash vs. full history~~ → D2 recommends `--squash` with explicit caveat about trade-offs. Team can override before executing.
+
+*Remaining (must be answered before Phase 0):*
+1. **Which pnpm version to pin?** Latest stable pnpm 9.x is recommended. Set in the root `package.json` `packageManager` field.
+2. **Which deployment platform?** The plan assumes Vercel. Confirm the actual platform for each app — reconnection steps differ by platform.
+3. **CI/CD inventory**: Do any of the three apps have active GitHub Actions or other CI? Must be inventoried before starting Phase 3.
+4. **Environment variables**: Do Vercel environment variables need to be reconfigured for the new repo, or do they carry over? Confirm before Phase 4.
 
 ---
 
@@ -201,6 +239,22 @@ This change is a repository/infrastructure migration with no functional code cha
 - Each app's `pnpm dev` starts the dev server without import-time errors — confirms phantom dependencies were resolved
 - `pnpm --filter web build` and equivalent for admin/mcp complete without errors — confirms build tooling works under new workspace context
 - If any shared config (e.g., TypeScript base config) is extracted to `packages/` in the future, integration tests should verify that app-level `tsconfig.json` extends correctly
+
+**Verification script** — run from the monorepo root after Phase 2 to validate the migration:
+```bash
+#!/bin/bash
+set -e
+echo "=== Monorepo migration verification ==="
+echo "1. pnpm install..."
+pnpm install
+for app in web admin mcp; do
+  echo "2. Building $app..."
+  pnpm --filter $app build
+  echo "3. Testing $app..."
+  pnpm --filter $app test || echo "WARN: $app has no test script (acceptable for mcp)"
+done
+echo "=== All checks passed ==="
+```
 
 ### Layer 3 — E2E Network Passthrough (Full UI flows with real dev server)
 
