@@ -2,13 +2,13 @@
 
 ## 1. Repository & Workspace Setup
 
-- [ ] 1.1 Create new GitHub repository `daily-writing-friends` (public or private per team convention)
-- [ ] 1.2 Initialize root `package.json` with `"private": true`, `"packageManager": "pnpm@9.x.x"` (latest stable 9.x), and workspace scripts: `build`, `test`, `dev` (each fanning out via `pnpm -r run <script>`)
-- [ ] 1.3 Create `pnpm-workspace.yaml` declaring globs `apps/*` and `packages/*`
-- [ ] 1.4 Create root `.npmrc` with `ignore-scripts=true`, `shamefully-hoist=false`, `strict-peer-dependencies=true`
-- [ ] 1.5 Create `packages/` directory with a `.gitkeep` file
-- [ ] 1.6 Create `apps/` directory placeholder (add `.gitkeep` temporarily if needed)
-- [ ] 1.7 Commit initial monorepo scaffold: `chore: init monorepo scaffold`
+- [x] 1.1 Create new GitHub repository `daily-writing-friends` (public or private per team convention)
+- [x] 1.2 Initialize root `package.json` with `"private": true`, `"packageManager": "pnpm@9.x.x"` (latest stable 9.x), and workspace scripts: `build`, `test`, `dev` (each fanning out via `pnpm -r run <script>`)
+- [x] 1.3 Create `pnpm-workspace.yaml` declaring globs `apps/*` and `packages/*`
+- [x] 1.4 Create root `.npmrc` with `ignore-scripts=true`, `shamefully-hoist=false`, `strict-peer-dependencies=true`
+- [x] 1.5 Create `packages/` directory with a `.gitkeep` file
+- [x] 1.6 Create `apps/` directory placeholder (add `.gitkeep` temporarily if needed)
+- [x] 1.7 Commit initial monorepo scaffold: `chore: init monorepo scaffold`
 
 ## 2. App Integration
 

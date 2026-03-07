@@ -1,23 +1,56 @@
-# Handoff: create-monorepo specs
+# Handoff: create-monorepo — Session 2 (Group 1: Repository & Workspace Setup)
 
 ## What was done
-- Generated spec files for both capabilities listed in the proposal
-- `monorepo-structure`: 7 requirements covering workspace config, directory layout, package naming, root scripts, security defaults (.npmrc), phantom dependency audit, lockfile strategy, and deployment reconnection
-- `history-preservation`: 4 requirements covering git subtree for main app, direct copy for admin/MCP, repository archiving conditions, and rollback window preservation
+
+Completed all 7 tasks in group "1. Repository & Workspace Setup":
+
+1. **GitHub repo created**: `BumgeunSong/daily-writing-friends-mono` (public)
+   - **Naming note**: The desired name `daily-writing-friends` was already taken by the existing main app repo (`BumgeunSong/daily-writing-friends`). Used `daily-writing-friends-mono` instead.
+
+2. **Root `package.json`** created with:
+   - `"private": true`
+   - `"packageManager": "pnpm@9.15.4"` (latest stable pnpm 9.x)
+   - Workspace fan-out scripts: `build`, `test`, `dev` via `pnpm -r run <script>`
+
+3. **`pnpm-workspace.yaml`** with globs `apps/*` and `packages/*`
+
+4. **Root `.npmrc`** with security defaults:
+   - `ignore-scripts=true`
+   - `shamefully-hoist=false`
+   - `strict-peer-dependencies=true`
+
+5. **`packages/`** directory with `.gitkeep`
+
+6. **`apps/`** directory with `.gitkeep`
+
+7. **Initial commit** `chore: init monorepo scaffold` pushed to `main` branch on GitHub
 
 ## Files changed
-- `openspec/changes/create-monorepo/specs/monorepo-structure/spec.md` — **created**
-- `openspec/changes/create-monorepo/specs/history-preservation/spec.md` — **created**
-- `openspec/changes/create-monorepo/handoff.md` — **updated**: this file
+
+**New repository** (not in BashRalph): `/Users/bumgeunsong/coding/tutorial/daily-writing-friends-mono/`
+- `package.json`
+- `pnpm-workspace.yaml`
+- `.npmrc`
+- `packages/.gitkeep`
+- `apps/.gitkeep`
+
+**In BashRalph repo** (this repo):
+- `openspec/changes/create-monorepo/tasks.md` — tasks 1.1–1.7 marked `[x]`
+- `openspec/changes/create-monorepo/handoff.md` — this file
 
 ## Key decisions
-- All spec requirements use ADDED delta (no existing specs were modified — confirmed `openspec/specs/` is empty)
-- `monorepo-structure` captures all structural and operational behaviors: workspace wiring, naming conventions, security defaults, phantom dep audit, deployment ignoreCommand
-- `history-preservation` captures the git integration strategy including the --squash trade-off, direct copy for admin/MCP, archiving conditions, and rollback window
-- Scenarios align directly with the Phase 2 success criteria and testability notes from the design
 
-## Notes for next session
-- Next step is **tasks** — create `openspec/changes/create-monorepo/tasks.md` mapping the 22-step migration plan to actionable implementation tasks
-- 4 open questions still need team input before Phase 0: pnpm version to pin, deployment platform confirmation, CI/CD inventory, env var migration strategy
-- D7's `ignore-scripts=true` may need per-app `.npmrc` overrides for post-install scripts (prisma generate, husky install) — flag as a task during Phase 1/2
-- Phantom dependency audit (Phase 2) is the highest-risk step — the tasks file should treat it as a blocking gate before Phase 3
+- **Repo name**: Used `daily-writing-friends-mono` instead of `daily-writing-friends` due to naming conflict with existing main app. The existing `daily-writing-friends` repo is the original main writing app.
+- **pnpm version**: Pinned to `9.15.4` (latest stable 9.x). System pnpm is 10.12.1 — use `corepack enable` or install pnpm@9 explicitly for consistency.
+
+## Notes for next session (Group 2: App Integration)
+
+- **Monorepo location**: `/Users/bumgeunsong/coding/tutorial/daily-writing-friends-mono/`
+- **GitHub repo**: `https://github.com/BumgeunSong/daily-writing-friends-mono`
+- **Source repos** (all exist locally and on GitHub):
+  - Main app: `/Users/bumgeunsong/coding/tutorial/DailyWritingFriends/` → `https://github.com/BumgeunSong/daily-writing-friends.git`
+  - Admin: `/Users/bumgeunsong/coding/tutorial/admin-daily-writing-friends/` → `https://github.com/BumgeunSong/daily-writing-friends-admin.git`
+  - MCP: `/Users/bumgeunsong/coding/tutorial/daily-writing-friends-mcp/` → `https://github.com/BumgeunSong/daily-writing-friends-mcp.git`
+- Task 2.1 git subtree command: `git subtree add --prefix=apps/web https://github.com/BumgeunSong/daily-writing-friends.git main --squash`
+- Tasks 2.2 and 2.3 copy admin and MCP source directly (no subtree)
+- All group 2 work should be done from `/Users/bumgeunsong/coding/tutorial/daily-writing-friends-mono/`
