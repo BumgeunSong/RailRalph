@@ -199,4 +199,5 @@ railralph list
 ## Based On
 
 - [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) by Anthropic
+- [Harness Design for Long-Running Apps](https://www.anthropic.com/engineering/harness-design-long-running-apps) by Anthropic
 - [OpenSpec](https://github.com/Fission-AI/OpenSpec) by Fission AI
