@@ -270,6 +270,7 @@ detect_skills() {
   # Phase-level defaults
   case "$phase" in
     apply-group) skills="${APPLY_SKILLS:-code-style}" ;;
+    evaluate)    skills="${EVALUATE_SKILLS:-testing agent-browser}" ;;
     verify)      skills="${VERIFY_SKILLS:-testing type-system code-style agent-browser}" ;;
     design)      skills="${DESIGN_SKILLS:-}" ;;
   esac
@@ -478,36 +479,81 @@ log "=========================================="
 log "  PHASE 3: VERIFICATION & CLOSING"
 log "=========================================="
 
-# Set skills for verify phase
+# Set skills for evaluate phase
 export HARNESS_SKILLS
-HARNESS_SKILLS=$(detect_skills "verify" "")
-log "Skills for verify: ${HARNESS_SKILLS:-none}"
+HARNESS_SKILLS=$(detect_skills "evaluate" "")
+log "Skills for evaluate: ${HARNESS_SKILLS:-none}"
 
-# Fix H1: verify with feedback loop — abort if verify fails after retries
-MAX_VERIFY_RETRIES="${MAX_VERIFY_RETRIES:-2}"
+# --- Evaluate → Fix Loop ---
+# Evaluator: read-only session that tests against acceptance criteria (contract)
+# Fixer: addresses only failures identified by the evaluator
+# Separation prevents self-evaluation bias (same agent judging its own work)
+MAX_EVAL_ITERATIONS="${MAX_EVAL_ITERATIONS:-${MAX_VERIFY_RETRIES:-3}}"
+EVAL_TOOLS="Bash Read Glob Grep"
+VERIFY_REPORT="$CHANGE_DIR/verify_report.md"
+
 verify_passed=false
-for verify_iter in $(seq 1 "$MAX_VERIFY_RETRIES"); do
-  log "Verify iteration $verify_iter of $MAX_VERIFY_RETRIES"
-  run_session "verify" "$MODEL_VERIFY" "" "verify-iter${verify_iter}" "true"
+for eval_iter in $(seq 1 "$MAX_EVAL_ITERATIONS"); do
+  log "Evaluate iteration $eval_iter of $MAX_EVAL_ITERATIONS"
+
+  # Kill stale dev servers from crashed previous iteration (prevents port conflicts)
+  lsof -ti:3000 | xargs kill 2>/dev/null || true
+  lsof -ti:3001 | xargs kill 2>/dev/null || true
+
+  # Clear stale report before evaluate (prevents reading previous iteration's report on crash)
+  rm -f "$VERIFY_REPORT"
+
+  # 1. Run read-only evaluate session (no Write/Edit) with MODEL_REVIEW for model independence
+  SAVED_ALLOWED_TOOLS="${ALLOWED_TOOLS:-}"
+  export ALLOWED_TOOLS="$EVAL_TOOLS"
+  run_session "evaluate" "$MODEL_REVIEW" "" "eval-iter${eval_iter}" "true" || true
+  ALLOWED_TOOLS="$SAVED_ALLOWED_TOOLS"
+  [ -z "$ALLOWED_TOOLS" ] && unset ALLOWED_TOOLS
   actual_sessions_run=$((actual_sessions_run + 1))
 
-  # Check if verify passed (verdict heading and PASS may be on separate lines)
-  VERIFY_REPORT="$CHANGE_DIR/verify_report.md"
+  # 2. Check verdict
   if [ -f "$VERIFY_REPORT" ] && grep -qi "overall verdict" "$VERIFY_REPORT" && grep -qi '\*\*pass\*\*' "$VERIFY_REPORT"; then
-    verify_passed=true
-    log "Verify PASSED"
-    break
+    # Hard threshold: any individual criterion FAIL overrides overall verdict
+    fail_count=$(grep -c '| FAIL |' "$VERIFY_REPORT" 2>/dev/null || true)
+    blocker_count=$(grep -ci 'severity: blocker' "$VERIFY_REPORT" 2>/dev/null || true)
+    if [ "$fail_count" -gt 0 ]; then
+      log "OVERRIDE: $fail_count criteria marked FAIL — treating as overall FAIL despite verdict"
+    elif [ "$blocker_count" -gt 0 ]; then
+      log "OVERRIDE: $blocker_count blocker-severity uncontracted findings — treating as FAIL"
+    else
+      verify_passed=true
+      log "Evaluate PASSED (all criteria pass)"
+      break
+    fi
   fi
 
-  if [ "$verify_iter" -lt "$MAX_VERIFY_RETRIES" ]; then
-    log "Verify FAILED — re-running apply fixes before next verify..."
-    # The verify session already attempts internal fixes;
-    # on next iteration it gets a fresh chance
+  # 3. If failed and not last iteration, run fix session
+  if [ "$eval_iter" -lt "$MAX_EVAL_ITERATIONS" ]; then
+    log "Evaluate FAILED — running fix session..."
+
+    # Extract failures section as context for fixer
+    fix_context=""
+    if [ -f "$VERIFY_REPORT" ]; then
+      fix_context=$(awk '/^## (Failures|Uncontracted)/{p=1} p && /^## Overall/{exit} p' "$VERIFY_REPORT" | head -200)
+      # Fallback: if awk found nothing (heading mismatch), pass entire report
+      if [ -z "$fix_context" ]; then
+        fix_context=$(head -200 "$VERIFY_REPORT")
+      fi
+    fi
+
+    # Reset skills to apply context for fix session
+    export HARNESS_SKILLS
+    HARNESS_SKILLS=$(detect_skills "apply-group" "")
+    run_session "verify-fix" "$MODEL_APPLY" "$fix_context" "fix-iter${eval_iter}" "true" || true
+    actual_sessions_run=$((actual_sessions_run + 1))
+
+    # Restore skills for next evaluate iteration
+    HARNESS_SKILLS=$(detect_skills "evaluate" "")
   fi
 done
 
 if [ "$verify_passed" = false ]; then
-  log "WARNING: Verify did not pass after $MAX_VERIFY_RETRIES iterations. Continuing with caution."
+  log "WARNING: Evaluate did not pass after $MAX_EVAL_ITERATIONS iterations. Continuing with caution."
 fi
 
 run_session "spec-alignment"       "$MODEL_PLANNING"
