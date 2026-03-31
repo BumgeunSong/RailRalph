@@ -10,18 +10,40 @@ Start a RailRalph pipeline in the background and narrate its progress to the dev
 ## Inputs
 
 Gather from the developer (ask if missing):
-- **Project directory**: The git repo to work on
+- **Project directory**: Local path or GitHub URL (e.g., `https://github.com/org/repo`)
 - **Change name**: Lowercase hyphenated identifier (e.g., `admin-review-page`)
 - **Brief**: 1-2 sentence description
 
 If the developer provides a GitHub issue URL, fetch it with `gh issue view` and derive the change name and brief.
+
+## Locate RailRalph
+
+Before starting, resolve the path to `rail.sh` using this priority:
+
+1. `RAILRALPH_HOME` env var (if set)
+2. `which railralph` (if installed via `install.sh`)
+3. Clone from GitHub as fallback
+
+```bash
+if [ -n "${RAILRALPH_HOME:-}" ] && [ -f "$RAILRALPH_HOME/rail.sh" ]; then
+  RAIL_SH="$RAILRALPH_HOME/rail.sh"
+elif command -v railralph &>/dev/null; then
+  RAIL_SH="$(dirname "$(readlink -f "$(which railralph)")")/rail.sh"
+else
+  RAILRALPH_HOME="/tmp/railralph-install"
+  if [ ! -f "$RAILRALPH_HOME/rail.sh" ]; then
+    git clone https://github.com/BumgeunSong/RailRalph.git "$RAILRALPH_HOME"
+  fi
+  RAIL_SH="$RAILRALPH_HOME/rail.sh"
+fi
+```
 
 ## Start the Pipeline
 
 ```bash
 cd "$PROJECT_DIR" && \
   RAILRALPH_PROJECT_DIR="$PROJECT_DIR" \
-  bash /Users/bumgeunsong/coding/BashRalph/rail.sh \
+  bash "$RAIL_SH" \
   "$CHANGE_NAME" "$BRIEF" \
   > /tmp/railralph-$CHANGE_NAME.log 2>&1
 ```

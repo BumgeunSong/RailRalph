@@ -15,6 +15,21 @@ RAIL_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 resolve_project_dir() {
   if [ -n "${RAILRALPH_PROJECT_DIR:-}" ]; then
+    # If it looks like a Git URL, clone it first
+    if [[ "$RAILRALPH_PROJECT_DIR" =~ ^https:// ]] || [[ "$RAILRALPH_PROJECT_DIR" =~ ^git@ ]]; then
+      local repo_name clone_dir
+      repo_name="$(basename "$RAILRALPH_PROJECT_DIR" .git)"
+      clone_dir="/tmp/railralph-project-${repo_name}"
+      if [ ! -d "$clone_dir/.git" ]; then
+        echo "Cloning $RAILRALPH_PROJECT_DIR → $clone_dir" >&2
+        git clone "$RAILRALPH_PROJECT_DIR" "$clone_dir" >&2
+      else
+        echo "Pulling latest in $clone_dir" >&2
+        git -C "$clone_dir" pull --ff-only >&2 || true
+      fi
+      (cd -P "$clone_dir" && pwd)
+      return
+    fi
     (cd -P "$RAILRALPH_PROJECT_DIR" && pwd) || { echo "ERROR: RAILRALPH_PROJECT_DIR '$RAILRALPH_PROJECT_DIR' not found" >&2; exit 1; }
     return
   fi
