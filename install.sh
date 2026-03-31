@@ -67,6 +67,13 @@ WRAPPER
 chmod +x "$BIN_DIR/railralph"
 
 echo "Installed: $BIN_DIR/railralph"
+
+# --- Install Claude Code skill to user scope ---
+SKILL_DIR="$HOME/.claude/skills/railralph-announcer"
+mkdir -p "$SKILL_DIR"
+cp "$SCRIPT_DIR/.claude/skills/railralph-announcer/skill.md" "$SKILL_DIR/skill.md"
+echo "Installed skill: $SKILL_DIR/skill.md"
+
 echo ""
 echo "Make sure $BIN_DIR is in your PATH:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
