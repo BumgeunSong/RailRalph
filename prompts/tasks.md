@@ -28,9 +28,16 @@ Generate the **tasks** artifact — an implementation checklist broken into logi
 - [ ] 1.1 Task description
 - [ ] 1.2 Task description
 
+### Acceptance Criteria
+> AC-1.1: [Testable assertion — specific, observable, binary pass/fail]
+> AC-1.2: [Testable assertion — e.g., "POST /login returns 200 with valid credentials, 401 with invalid"]
+
 ## 2. Group Name
 
 - [ ] 2.1 Task description
+
+### Acceptance Criteria
+> AC-2.1: [Testable assertion — specific, observable, binary pass/fail]
 
 ## Tests
 
@@ -54,6 +61,12 @@ Each `## N.` group will be implemented in a SEPARATE agent session. Design group
 - **Self-contained** — a group should produce a committable, testable increment
 - **Tests section** is REQUIRED — every task with business logic needs a corresponding test task
 - Test tasks should specify which tool runs them: Vitest, agent-browser, or Supabase local
+- **Acceptance Criteria are REQUIRED** — every group must have `### Acceptance Criteria` with `> AC-N.X:` items
+- Each AC must be testable, binary, and observable (external behavior, not implementation details)
+- Write ACs from the evaluator's perspective: "what would I check to confirm this group works?"
+- Good AC: `> AC-1.1: GET /api/users returns 200 with JSON array when authenticated`
+- Bad AC: `> AC-1.1: Code is well-structured` (subjective, not testable)
+- Test tasks should map back to acceptance criteria where possible
 
 ## Rules
 
