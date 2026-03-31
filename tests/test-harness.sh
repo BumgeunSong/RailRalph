@@ -434,3 +434,249 @@ echo "=== T.6-T.8: Integration tests (placeholders) ==="
 echo "  SKIP: T.6 — dry-run apply loop requires full harness"
 echo "  SKIP: T.7 — dry-run review-response requires gh CLI + PR"
 echo "  SKIP: T.8 — dry-run skill injection requires claude CLI"
+
+# ============================================================
+# T.9: Test acceptance criteria parsing
+# ============================================================
+echo ""
+echo "=== T.9: Acceptance criteria parsing ==="
+
+AC_TASKS="$TEST_TMP/ac-tasks.md"
+cat > "$AC_TASKS" << 'EOF'
+## 1. Auth Setup
+
+- [x] 1.1 Create auth middleware
+- [x] 1.2 Add session handling
+
+### Acceptance Criteria
+> AC-1.1: POST /login returns 200 with valid credentials
+> AC-1.2: Protected routes return 403 without session token
+
+## 2. Dashboard
+
+- [x] 2.1 Create dashboard page
+
+### Acceptance Criteria
+> AC-2.1: Dashboard renders with user data after login
+EOF
+
+# Group 1 content includes its ACs
+result=$(get_section_content "1. Auth Setup" "$AC_TASKS")
+assert_contains "Group 1 content includes AC-1.1" "AC-1.1" "$result"
+assert_contains "Group 1 content includes AC-1.2" "AC-1.2" "$result"
+
+# Group 2 ACs don't bleed into Group 1
+assert_not_contains "Group 1 does not contain AC-2.1" "AC-2.1" "$result"
+
+# Last group (no trailing ## sentinel) extracts correctly
+result=$(get_section_content "2. Dashboard" "$AC_TASKS")
+assert_contains "Last group AC extracted" "AC-2.1" "$result"
+
+# AC blockquotes do NOT count as unchecked tasks
+unchecked=$(get_section_unchecked "1. Auth Setup" "$AC_TASKS")
+assert_eq "AC blockquotes not counted as unchecked tasks" "0" "$unchecked"
+
+# Backward compat: tasks without ACs still work
+NO_AC_TASKS="$TEST_TMP/no-ac-tasks.md"
+cat > "$NO_AC_TASKS" << 'EOF'
+## 1. Setup
+- [ ] 1.1 Create file
+- [x] 1.2 Done
+EOF
+
+unchecked=$(get_section_unchecked "1. Setup" "$NO_AC_TASKS")
+assert_eq "legacy tasks without ACs: unchecked count correct" "1" "$unchecked"
+
+# ============================================================
+# T.10: ALLOWED_TOOLS passthrough to session.sh
+# ============================================================
+echo ""
+echo "=== T.10: ALLOWED_TOOLS passthrough ==="
+
+# Create mock claude that records its arguments
+MOCK_CLAUDE_DIR="$TEST_TMP/mock-claude-bin"
+mkdir -p "$MOCK_CLAUDE_DIR"
+CLAUDE_ARGS_LOG="$TEST_TMP/claude-args.log"
+cat > "$MOCK_CLAUDE_DIR/claude" << MOCK
+#!/usr/bin/env bash
+echo "\$@" > "$CLAUDE_ARGS_LOG"
+exit 0
+MOCK
+chmod +x "$MOCK_CLAUDE_DIR/claude"
+
+# Create minimal project structure
+MOCK_PROJECT="$TEST_TMP/mock-project-t10"
+mkdir -p "$MOCK_PROJECT/.git" "$MOCK_PROJECT/openspec/changes/test-change"
+
+# Capture path to real session.sh before subshell (session.sh self-resolves HARNESS_DIR from dirname $0)
+REAL_SESSION_SH="$HARNESS_DIR/session.sh"
+
+# Guard: evaluate.md must exist (created in Task 2)
+if [ ! -f "$HARNESS_DIR/prompts/evaluate.md" ]; then
+  echo "  SKIP: T.10 requires prompts/evaluate.md (run after Task 2)"
+else
+  # Run session.sh with restricted ALLOWED_TOOLS
+  (
+    export ALLOWED_TOOLS="Bash Read Glob Grep"
+    export PROJECT_DIR="$MOCK_PROJECT"
+    PATH="$MOCK_CLAUDE_DIR:$PATH" \
+      "$REAL_SESSION_SH" \
+      "test-change" "evaluate" "sonnet" "brief" "$LOG_DIR" "" "t10" 2>/dev/null || true
+  )
+
+  if [ -f "$TEST_TMP/claude-args.log" ]; then
+    args=$(cat "$TEST_TMP/claude-args.log")
+    # Extract only the --allowed-tools value (the space-separated list after the flag)
+    allowed_tools_value=$(echo "$args" | grep -oE '\-\-allowed-tools [A-Za-z ]+' | sed 's/--allowed-tools //')
+    assert_not_contains "evaluate excludes Write from --allowed-tools" "Write" "$allowed_tools_value"
+    assert_not_contains "evaluate excludes Edit from --allowed-tools" "Edit" "$allowed_tools_value"
+    assert_contains "evaluate includes Bash in --allowed-tools" "Bash" "$allowed_tools_value"
+    assert_contains "evaluate includes Read in --allowed-tools" "Read" "$allowed_tools_value"
+  else
+    echo "  FAIL: claude was not invoked — check session.sh path"
+    FAIL=$((FAIL + 1))
+  fi
+fi  # end guard for evaluate.md existence
+
+# ============================================================
+# T.11: Verdict parsing
+# ============================================================
+echo ""
+echo "=== T.11: Verdict parsing ==="
+
+# PASS verdict detected
+PASS_REPORT="$TEST_TMP/pass-report.md"
+printf '## Overall Verdict: **PASS**\n' > "$PASS_REPORT"
+if grep -qi "overall verdict" "$PASS_REPORT" && grep -qi '\*\*pass\*\*' "$PASS_REPORT"; then
+  echo "  PASS: PASS verdict detected correctly"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: PASS verdict not detected"
+  FAIL=$((FAIL + 1))
+fi
+
+# FAIL verdict NOT misread as PASS
+FAIL_REPORT="$TEST_TMP/fail-report.md"
+printf '## Overall Verdict: **FAIL**\n' > "$FAIL_REPORT"
+if grep -qi '\*\*pass\*\*' "$FAIL_REPORT"; then
+  echo "  FAIL: FAIL verdict misread as PASS"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: FAIL verdict not misread as PASS"
+  PASS=$((PASS + 1))
+fi
+
+# Hard threshold: | FAIL | row overrides overall PASS
+MIXED_REPORT="$TEST_TMP/mixed-report.md"
+cat > "$MIXED_REPORT" << 'EOF'
+| AC-1.1: login | PASS | works |
+| AC-1.2: auth guard | FAIL | returns 200 instead of 403 |
+
+## Overall Verdict: **PASS**
+EOF
+fail_count=$(grep -c '| FAIL |' "$MIXED_REPORT" 2>/dev/null || true)
+assert_eq "hard threshold catches FAIL row despite overall PASS" "1" "$fail_count"
+
+# Blocker uncontracted finding overrides overall PASS
+BLOCKER_REPORT="$TEST_TMP/blocker-report.md"
+cat > "$BLOCKER_REPORT" << 'EOF'
+## Acceptance Criteria Verdicts
+| AC-1.1: login | PASS | curl returned 200 |
+
+## Uncontracted Findings
+
+### Finding: empty password accepted
+- **Severity**: blocker
+
+## Overall Verdict: **PASS**
+EOF
+
+blocker_count=$(grep -ci '\*\*severity\*\*: blocker' "$BLOCKER_REPORT" 2>/dev/null || true)
+assert_eq "blocker uncontracted finding detected" "1" "$blocker_count"
+
+fail_count=$(grep -c '| FAIL |' "$BLOCKER_REPORT" 2>/dev/null || true)
+assert_eq "no FAIL rows in blocker report" "0" "$fail_count"
+
+# Simulate the actual verdict branch logic from run.sh
+if grep -qi "overall verdict" "$BLOCKER_REPORT" && grep -qi '\*\*pass\*\*' "$BLOCKER_REPORT"; then
+  if [ "$fail_count" -gt 0 ]; then
+    overall="FAIL-by-threshold"
+  elif [ "$blocker_count" -gt 0 ]; then
+    overall="FAIL-by-blocker"
+  else
+    overall="PASS"
+  fi
+else
+  overall="FAIL-no-verdict"
+fi
+assert_eq "blocker severity overrides overall PASS verdict" "FAIL-by-blocker" "$overall"
+
+# Missing report file: grep returns false gracefully
+NONEXISTENT="$TEST_TMP/nonexistent-report.md"
+if [ -f "$NONEXISTENT" ] && grep -qi '\*\*pass\*\*' "$NONEXISTENT"; then
+  echo "  FAIL: nonexistent report should not match"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: missing report handled gracefully"
+  PASS=$((PASS + 1))
+fi
+
+# ============================================================
+# T.12: Failures section extraction (awk)
+# ============================================================
+echo ""
+echo "=== T.12: Failures section extraction ==="
+
+FULL_REPORT="$TEST_TMP/full-eval-report.md"
+cat > "$FULL_REPORT" << 'EOF'
+## Test Suite Results
+- Unit: 5 passed
+
+## Failures
+
+### AC-1.2: Auth guard missing
+- **Verification command**: `curl localhost:3000/api/protected`
+- **Expected**: 403
+- **Actual**: 200
+
+## Uncontracted Findings
+
+### Finding: empty password accepted
+- **Severity**: blocker
+
+## Overall Verdict: **FAIL**
+EOF
+
+fix_context=$(awk '/^## (Failures|Uncontracted)/{p=1; next} p && /^## /{exit} p' "$FULL_REPORT" | head -200)
+assert_contains "failures section includes AC details" "AC-1.2" "$fix_context"
+assert_contains "uncontracted findings included in extraction" "empty password" "$fix_context"
+assert_not_contains "overall verdict excluded from extraction" "Overall Verdict" "$fix_context"
+
+# Heading starting with F does NOT break extraction (old [^F] bug)
+F_HEADING_REPORT="$TEST_TMP/f-heading-report.md"
+cat > "$F_HEADING_REPORT" << 'EOF'
+## Failures
+
+### AC-1.1: broken
+
+## Further Analysis
+
+This should NOT leak into fix_context
+
+## Overall Verdict: **FAIL**
+EOF
+fix_context=$(awk '/^## (Failures|Uncontracted)/{p=1; next} p && /^## /{exit} p' "$F_HEADING_REPORT" | head -200)
+assert_contains "failures section extracted" "AC-1.1" "$fix_context"
+assert_not_contains "## Further Analysis excluded by new awk pattern" "Further Analysis" "$fix_context"
+
+# No failures section → empty context + fallback
+NO_FAIL="$TEST_TMP/no-fail-report.md"
+printf '## Overall Verdict: **PASS**\n' > "$NO_FAIL"
+fix_context=$(awk '/^## (Failures|Uncontracted)/{p=1; next} p && /^## /{exit} p' "$NO_FAIL" | head -200)
+assert_empty "no failures section → empty awk result" "$fix_context"
+
+# Fallback: when awk is empty, use head of full report
+if [ -z "$fix_context" ]; then
+  fix_context=$(head -200 "$NO_FAIL")
+fi
+assert_contains "fallback uses full report" "Overall Verdict" "$fix_context"
