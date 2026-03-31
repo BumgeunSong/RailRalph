@@ -8,7 +8,9 @@ Multi-session Claude pipeline orchestrator for OpenSpec-based development workfl
 
 RailRalph chains `claude -p` sessions through a **planning → apply → verify** lifecycle for structured development. It orchestrates 13+ Claude sessions using pure bash with zero runtime dependencies, driving changes through design, implementation, verification, and pull request creation.
 
-The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. RailRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
+The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. A **contract-based separate evaluator** uses a different model (opus) to judge the implementation model's (sonnet) work against acceptance criteria — eliminating the self-evaluation bias common in single-agent loops.
+
+RailRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
 
 Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specification-driven development.
 
@@ -107,16 +109,42 @@ Skills are dynamically matched using keywords in `tasks.md` + configured `SKILL_
 
 Output: All changes applied to source; artifacts committed to `openspec/`.
 
-### Phase 3: Verification & Closing (5+ sessions)
+### Phase 3: Evaluate → Fix → Close (5+ sessions)
 
-Verification runs sequentially (with retry loops on failure):
+Verification uses a **contract-based separate evaluator** — the key differentiator of RailRalph.
 
-1. **Verify** — Run test suite, linters, and full spec validation (injects `VERIFY_SKILLS`)
-2. **Spec Alignment** — Ensure OpenSpec artifact matches applied changes
-3. **Pull Request** — Create GitHub pull request with full context
-4. **Review Response** — Iterate on PR review feedback
-5. **Final Spec Alignment** — Finalize specs to match merged change
-6. **Retro** — Generate retrospective documenting what was learned
+#### Why separate the evaluator?
+
+Most agent harnesses let the same agent build and judge its own work. Anthropic's research on [harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps) found this creates **self-evaluation bias** — agents approve mediocre work because they wrote it. RailRalph solves this by splitting verification into two independent sessions:
+
+```
+┌─────────────────────┐     ┌──────────────────────┐
+│  Evaluate (opus)    │     │  Fix (sonnet)         │
+│  Read-only          │────▶│  Full tools           │
+│  Tests against ACs  │     │  Fixes only failures  │
+│  Produces report    │     │  from the report      │
+└─────────────────────┘     └──────────────────────┘
+         ▲                            │
+         └────────────────────────────┘
+              Loop until all ACs pass
+```
+
+- **Different model judges different model's work** — opus evaluates sonnet's code, eliminating self-evaluation bias
+- **Read-only enforcement** — the evaluator has `Bash Read Glob Grep` only (no Write, no Edit), so it cannot "fix" issues to make them pass
+- **Contract-driven** — acceptance criteria (`> AC-N.X:`) in `tasks.md` define the grading rubric; the evaluator tests every single one with evidence
+- **Three-level depth** — Level 1: literal AC check → Level 2: spec-driven edge cases → Level 3: adversarial probing
+- **Hard threshold** — any single AC FAIL or blocker-severity uncontracted finding overrides an overall PASS verdict
+
+#### Verification sessions:
+
+1. **Evaluate** (read-only, opus) — Tests each acceptance criterion with targeted E2E commands, produces `verify_report.md` with per-criterion PASS/FAIL verdicts and file:line evidence
+2. **Fix** (full tools, sonnet) — Receives the evaluation report and fixes only the identified failures
+3. *(Loops back to Evaluate until all ACs pass or max iterations reached)*
+4. **Spec Alignment** — Ensure OpenSpec artifact matches applied changes
+5. **Pull Request** — Create GitHub pull request with full context
+6. **Review Response** — Iterate on PR review feedback
+7. **Final Spec Alignment** — Finalize specs to match merged change
+8. **Retro** — Generate retrospective documenting what was learned
 
 Output: Merged PR, finalized OpenSpec artifact, full audit trail.
 
