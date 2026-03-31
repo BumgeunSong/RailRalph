@@ -71,7 +71,7 @@ cleanup() {
 trap cleanup EXIT
 
 # --- Source harness functions ---
-# We need to source just the functions from run.sh without executing the main script.
+# We need to source just the functions from rail.sh without executing the main script.
 # Extract function definitions into a sourceable file.
 
 extract_functions() {
@@ -87,8 +87,8 @@ extract_functions() {
   log() { echo "[TEST] $*" >> "$LOG_DIR/harness.log"; }
 
   # Source get_section_content and get_section_unchecked
-  eval "$(sed -n '/^get_section_content()/,/^}/p' "$HARNESS_DIR/run.sh")"
-  eval "$(sed -n '/^get_section_unchecked()/,/^}/p' "$HARNESS_DIR/run.sh")"
+  eval "$(sed -n '/^get_section_content()/,/^}/p' "$HARNESS_DIR/rail.sh")"
+  eval "$(sed -n '/^get_section_unchecked()/,/^}/p' "$HARNESS_DIR/rail.sh")"
 
   # Portability: timeout shim for tests (must actually enforce timeout)
   if ! command -v timeout &>/dev/null; then
@@ -102,11 +102,11 @@ extract_functions() {
 
   # Source run_tsc_gate
   export TSC_TIMEOUT=2
-  eval "$(sed -n '/^run_tsc_gate()/,/^}/p' "$HARNESS_DIR/run.sh")"
+  eval "$(sed -n '/^run_tsc_gate()/,/^}/p' "$HARNESS_DIR/rail.sh")"
 
   # Source detect_skills and its dependencies
-  eval "$(sed -n '/^SKILL_KEYWORDS=.*{SKILL_KEYWORDS/p' "$HARNESS_DIR/run.sh")"
-  eval "$(sed -n '/^detect_skills()/,/^}/p' "$HARNESS_DIR/run.sh")"
+  eval "$(sed -n '/^SKILL_KEYWORDS=.*{SKILL_KEYWORDS/p' "$HARNESS_DIR/rail.sh")"
+  eval "$(sed -n '/^detect_skills()/,/^}/p' "$HARNESS_DIR/rail.sh")"
 }
 
 extract_functions
@@ -488,7 +488,7 @@ unchecked=$(get_section_unchecked "1. Setup" "$NO_AC_TASKS")
 assert_eq "legacy tasks without ACs: unchecked count correct" "1" "$unchecked"
 
 # ============================================================
-# T.10: ALLOWED_TOOLS passthrough to session.sh
+# T.10: ALLOWED_TOOLS passthrough to station.sh
 # ============================================================
 echo ""
 echo "=== T.10: ALLOWED_TOOLS passthrough ==="
@@ -508,14 +508,14 @@ chmod +x "$MOCK_CLAUDE_DIR/claude"
 MOCK_PROJECT="$TEST_TMP/mock-project-t10"
 mkdir -p "$MOCK_PROJECT/.git" "$MOCK_PROJECT/openspec/changes/test-change"
 
-# Capture path to real session.sh before subshell (session.sh self-resolves HARNESS_DIR from dirname $0)
-REAL_SESSION_SH="$HARNESS_DIR/session.sh"
+# Capture path to real station.sh before subshell (station.sh self-resolves HARNESS_DIR from dirname $0)
+REAL_SESSION_SH="$HARNESS_DIR/station.sh"
 
 # Guard: evaluate.md must exist (created in Task 2)
 if [ ! -f "$HARNESS_DIR/prompts/evaluate.md" ]; then
   echo "  SKIP: T.10 requires prompts/evaluate.md (run after Task 2)"
 else
-  # Run session.sh with restricted ALLOWED_TOOLS
+  # Run station.sh with restricted ALLOWED_TOOLS
   (
     export ALLOWED_TOOLS="Bash Read Glob Grep"
     export PROJECT_DIR="$MOCK_PROJECT"
@@ -533,7 +533,7 @@ else
     assert_contains "evaluate includes Bash in --allowed-tools" "Bash" "$allowed_tools_value"
     assert_contains "evaluate includes Read in --allowed-tools" "Read" "$allowed_tools_value"
   else
-    echo "  FAIL: claude was not invoked — check session.sh path"
+    echo "  FAIL: claude was not invoked — check station.sh path"
     FAIL=$((FAIL + 1))
   fi
 fi  # end guard for evaluate.md existence
@@ -597,7 +597,7 @@ assert_eq "blocker uncontracted finding detected" "1" "$blocker_count"
 fail_count=$(grep -c '| FAIL |' "$BLOCKER_REPORT" 2>/dev/null || true)
 assert_eq "no FAIL rows in blocker report" "0" "$fail_count"
 
-# Simulate the actual verdict branch logic from run.sh
+# Simulate the actual verdict branch logic from rail.sh
 if grep -qi "overall verdict" "$BLOCKER_REPORT" && grep -qi '\*\*pass\*\*' "$BLOCKER_REPORT"; then
   if [ "$fail_count" -gt 0 ]; then
     overall="FAIL-by-threshold"

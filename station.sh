@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #
-# Session Runner — executes a single Claude Code CLI session
+# Station Runner — executes a single Claude Code CLI session (one stop on the rail)
 #
 # Each invocation is a fresh agent with no conversation history.
 # All context comes from the appended system prompt + files on disk.

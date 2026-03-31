@@ -2,9 +2,9 @@
 set -euo pipefail
 
 #
-# BashRalph Installer
+# RailRalph Installer
 #
-# Checks prerequisites and installs the `bashralph` command.
+# Checks prerequisites and installs the `railralph` command.
 #
 
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
@@ -54,19 +54,19 @@ fi
 
 # --- Install ---
 echo ""
-echo "Installing bashralph to $BIN_DIR..."
+echo "Installing railralph to $BIN_DIR..."
 mkdir -p "$BIN_DIR"
 
 # Create wrapper script that resolves its real path
-cat > "$BIN_DIR/bashralph" << WRAPPER
+cat > "$BIN_DIR/railralph" << WRAPPER
 #!/usr/bin/env bash
-# BashRalph wrapper — resolves real path and execs run.sh
-BASHRALPH_HOME="$SCRIPT_DIR"
-exec "\$BASHRALPH_HOME/run.sh" "\$@"
+# RailRalph wrapper — resolves real path and execs rail.sh
+RAILRALPH_HOME="$SCRIPT_DIR"
+exec "\$RAILRALPH_HOME/rail.sh" "\$@"
 WRAPPER
-chmod +x "$BIN_DIR/bashralph"
+chmod +x "$BIN_DIR/railralph"
 
-echo "Installed: $BIN_DIR/bashralph"
+echo "Installed: $BIN_DIR/railralph"
 echo ""
 echo "Make sure $BIN_DIR is in your PATH:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""

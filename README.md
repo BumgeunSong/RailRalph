@@ -1,12 +1,14 @@
-# BashRalph
+# RailRalph
+
+**Ralph on deterministic rails.**
 
 Multi-session Claude pipeline orchestrator for OpenSpec-based development workflows.
 
-## What is BashRalph?
+## What is RailRalph?
 
-BashRalph chains `claude -p` sessions through a **planning → apply → verify** lifecycle for structured development. It orchestrates 13+ Claude sessions using pure bash with zero runtime dependencies, driving changes through design, implementation, verification, and pull request creation.
+RailRalph chains `claude -p` sessions through a **planning → apply → verify** lifecycle for structured development. It orchestrates 13+ Claude sessions using pure bash with zero runtime dependencies, driving changes through design, implementation, verification, and pull request creation.
 
-The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. BashRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
+The real value lies in the prompt templates: each phase injects context-aware skills, validates outputs with gates (e.g., `npx tsc`), and persists state to enable retry and resumption. RailRalph is designed for **high-fidelity, long-running agent workflows** where reliability and auditability matter.
 
 Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specification-driven development.
 
@@ -23,27 +25,27 @@ Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specif
 
 ```bash
 # Install
-git clone https://github.com/your-org/bashralph.git
-cd BashRalph
+git clone https://github.com/your-org/railralph.git
+cd RailRalph
 make install
 
 # Run from your project directory
 cd /path/to/your-project
-bashralph my-change-name 'Brief description of the change'
+railralph my-change-name 'Brief description of the change'
 ```
 
-BashRalph will:
+RailRalph will:
 1. Create an OpenSpec artifact at `openspec/changes/my-change-name/`
 2. Run 6 planning sessions (proposal, design, specs, tasks)
 3. Apply changes in batches with type safety gates
 4. Verify and create a pull request
 5. Generate a retrospective
 
-Logs are written to `.bashralph/logs/$RUN_ID/` for full auditability.
+Logs are written to `.railralph/logs/$RUN_ID/` for full auditability.
 
 ## Configuration
 
-Create `.bashralph.config.sh` in your project root. All variables are optional with sensible defaults.
+Create `.railralph.config.sh` in your project root. All variables are optional with sensible defaults.
 
 ### Skills and Validation
 
@@ -60,14 +62,14 @@ Create `.bashralph.config.sh` in your project root. All variables are optional w
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BASHRALPH_PROJECT_DIR` | Auto-detected (git root) | Override project directory |
-| `BASHRALPH_LOG_DIR` | `$PROJECT_DIR/.bashralph/logs/$RUN_ID` | Override log directory |
+| `RAILRALPH_PROJECT_DIR` | Auto-detected (git root) | Override project directory |
+| `RAILRALPH_LOG_DIR` | `$PROJECT_DIR/.railralph/logs/$RUN_ID` | Override log directory |
 | `MODEL_PLANNING` | `sonnet` | Model for planning sessions |
 | `MODEL_REVIEW` | `opus` | Model for review sessions |
 | `MODEL_APPLY` | `sonnet` | Model for apply sessions |
 | `MODEL_VERIFY` | `sonnet` | Model for verify sessions |
 
-Example `.bashralph.config.sh`:
+Example `.railralph.config.sh`:
 
 ```bash
 export DESIGN_SKILLS="architecture design-review"
@@ -120,10 +122,10 @@ Output: Merged PR, finalized OpenSpec artifact, full audit trail.
 
 ## Logs and State
 
-BashRalph writes full logs to `.bashralph/logs/$RUN_ID/`:
+RailRalph writes full logs to `.railralph/logs/$RUN_ID/`:
 
 ```
-.bashralph/logs/
+.railralph/logs/
 └── RUN_ID/
     ├── plan/
     │   ├── 01-proposal.log
@@ -150,10 +152,10 @@ Logs are **never deleted** — they form a complete audit trail of the change li
 
 ## .gitignore
 
-Add `.bashralph/` to your project's `.gitignore`:
+Add `.railralph/` to your project's `.gitignore`:
 
 ```gitignore
-.bashralph/
+.railralph/
 ```
 
 ## Commands
@@ -161,38 +163,38 @@ Add `.bashralph/` to your project's `.gitignore`:
 ### Run a Change
 
 ```bash
-bashralph <change-name> '<brief description>'
+railralph <change-name> '<brief description>'
 ```
 
 ### Resume a Run
 
 ```bash
-bashralph resume <RUN_ID>
+railralph resume <RUN_ID>
 ```
 
 ### View Logs
 
 ```bash
-bashralph logs <RUN_ID>
+railralph logs <RUN_ID>
 ```
 
 ### List Runs
 
 ```bash
-bashralph list
+railralph list
 ```
 
 ## Design Principles
 
-**Reliability through structure:** BashRalph relies on OpenSpec to provide a shared source of truth. Each phase produces artifacts that feed the next; failures are logged with full context for resumption.
+**Reliability through structure:** RailRalph relies on OpenSpec to provide a shared source of truth. Each phase produces artifacts that feed the next; failures are logged with full context for resumption.
 
-**Long-running agent best practices:** Inspired by [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), BashRalph:
+**Long-running agent best practices:** Inspired by [Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), RailRalph:
 - Breaks work into discrete sessions with clear inputs/outputs
 - Validates between phases (type gates, spec alignment checks)
 - Logs everything for auditability and resumption
 - Injects context-appropriate skills at each phase
 
-**Pure bash, zero dependencies:** No Python, Node.js runtime, or external orchestration. BashRalph is a shell script that invokes standard CLI tools.
+**Pure bash, zero dependencies:** No Python, Node.js runtime, or external orchestration. RailRalph is a shell script that invokes standard CLI tools.
 
 ## Based On
 
