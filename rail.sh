@@ -100,13 +100,6 @@ log() {
 
 [ -f "$CONFIG_FILE" ] && log "Loaded config from $CONFIG_FILE"
 
-# --- Announcer ---
-ANNOUNCER_PID=""
-if [ "${RAILRALPH_ANNOUNCER:-true}" != "false" ]; then
-  "$RAIL_DIR/railralph-announcer.sh" "$LOG_DIR/rail.log" &
-  ANNOUNCER_PID=$!
-fi
-
 # --- Checkpoint ---
 checkpoint_done() {
   local phase="$1"
@@ -306,13 +299,7 @@ detect_skills() {
 }
 
 # --- Signal Handling ---
-cleanup_and_exit() {
-  log "INTERRUPTED — cleaning up..."
-  [ -n "${ANNOUNCER_PID:-}" ] && { kill "$ANNOUNCER_PID" 2>/dev/null; wait "$ANNOUNCER_PID" 2>/dev/null || true; }
-  git_cleanup_tags
-  exit 130
-}
-trap 'cleanup_and_exit' INT TERM
+trap 'log "INTERRUPTED — cleaning up..."; git_cleanup_tags; exit 130' INT TERM
 
 # ============================================================
 # Initialize
@@ -652,9 +639,3 @@ echo "Log dir:    $LOG_DIR"
 echo ""
 echo "Artifacts:  $CHANGE_DIR/"
 echo "Git log:    git log --oneline"
-
-# Stop announcer
-if [ -n "${ANNOUNCER_PID:-}" ]; then
-  sleep 1
-  kill "$ANNOUNCER_PID" 2>/dev/null; wait "$ANNOUNCER_PID" 2>/dev/null || true
-fi

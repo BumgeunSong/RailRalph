@@ -1,77 +1,89 @@
 ---
 name: railralph-announcer
-description: "Monitor a running RailRalph pipeline and narrate progress in real-time. Use when railralph is running in background and the developer wants live updates. Triggered by 'railralph', 'run railralph', 'start railralph', or when rail.sh is running."
+description: "Use when the developer asks to run railralph, start railralph, or provides a task for railralph to work on. Monitors pipeline progress and narrates in real-time."
 ---
 
 # RailRalph Announcer
 
-You are the announcer for a RailRalph pipeline run. Your job is to monitor `rail.log` and narrate what's happening to the developer in real-time.
+Start a RailRalph pipeline in the background and narrate its progress to the developer.
 
-## When to Activate
+## Inputs
 
-When the developer triggers a RailRalph run in this interactive session. You start `rail.sh` in the background and then monitor its progress.
+Gather from the developer (ask if missing):
+- **Project directory**: The git repo to work on
+- **Change name**: Lowercase hyphenated identifier (e.g., `admin-review-page`)
+- **Brief**: 1-2 sentence description
 
-## How It Works
+If the developer provides a GitHub issue URL, fetch it with `gh issue view` and derive the change name and brief.
 
-### 1. Start the pipeline
-
-Run `rail.sh` in the background:
+## Start the Pipeline
 
 ```bash
-RAILRALPH_ANNOUNCER=false RAILRALPH_PROJECT_DIR="$PROJECT_DIR" \
-  bash "$RAIL_DIR/rail.sh" "$CHANGE_NAME" "$BRIEF" &
+cd "$PROJECT_DIR" && \
+  RAILRALPH_PROJECT_DIR="$PROJECT_DIR" \
+  bash /Users/bumgeunsong/coding/BashRalph/rail.sh \
+  "$CHANGE_NAME" "$BRIEF" \
+  > /tmp/railralph-$CHANGE_NAME.log 2>&1
 ```
 
-- Set `RAILRALPH_ANNOUNCER=false` to disable the bash announcer (you ARE the announcer)
-- Note the `LOG_DIR` from the first few lines of output (format: `.railralph/logs/YYYYMMDD-HHMMSS/`)
+**Critical details:**
+- `rail.sh` takes TWO positional args: `<change-name> "<brief>"` (NOT flags)
+- Set `RAILRALPH_PROJECT_DIR` env var to the target project
+- Run with `run_in_background: true` so you can monitor
+- Redirect to `/tmp/` (the `.railralph/` dir doesn't exist until rail.sh creates it)
 
-### 2. Monitor loop
+## Find the Log File
 
-Enter a loop that reads new lines from `rail.log`:
+After starting, read the output to find `RUN_ID`:
 
-```
-while pipeline is running:
-  1. Run: tail -n +$LAST_LINE rail.log | head -50
-  2. For each new line, output: 🚂 <line>
-  3. Update LAST_LINE counter
-  4. If line contains "ARRIVED" or "INTERRUPTED" → exit loop
-  5. Sleep 10 seconds between checks
+```bash
+head -20 /tmp/railralph-$CHANGE_NAME.log
 ```
 
-Use the Bash tool to read new log lines. Output them directly as conversation text prefixed with `🚂`.
+Look for `Run ID: YYYYMMDD-HHMMSS`. The log file is:
+```
+$PROJECT_DIR/.railralph/logs/$RUN_ID/rail.log
+```
 
-### 3. Narration rules
+## Monitor Loop
 
-- Output every log line prefixed with `🚂`
-- Do NOT summarize or interpret — just forward the log lines
-- Do NOT add commentary between checks unless the developer asks
-- When the developer asks a question mid-run, answer it, then resume monitoring
-- On "ARRIVED": announce completion and show the summary
-- On "INTERRUPTED" or error: announce what happened
+Repeat until pipeline completes:
 
-### 4. On-demand Q&A
+1. Read new lines: `tail -n +$LAST_LINE "$LOG_FILE" 2>/dev/null | head -50`
+2. Output each line prefixed with `🚂`
+3. Update `LAST_LINE` counter
+4. If any line contains `ARRIVED` or `INTERRUPTED` → stop
+5. Sleep 10 seconds between checks
 
-If the developer asks a question during the run (e.g., "what did Inspector find?"):
+## Pipeline Phases
 
-1. Read the relevant artifact file (e.g., `verify_report.md`, `tasks.md`, `handoff.md`)
-2. Answer concisely in the developer's language
-3. Resume monitoring
+What the log lines mean:
 
-### 5. Language
+| Log pattern | Phase | What's happening |
+|---|---|---|
+| `PHASE 1: PLANNING` | Planning | 6 sessions: proposal → review → design → review → specs → tasks |
+| `PHASE 2: APPLY` | Implementation | One session per task group, with TSC gate + retries |
+| `PHASE 3: VERIFICATION` | Verify | Evaluate (opus, read-only) → fix (sonnet) loop, max 3 iterations |
+| `Starting session: X` | Session start | A `claude -p` session is running |
+| `Completed session: X` | Session end | Duration and exit code shown |
+| `TSC GATE: PASS/FAIL` | Type check | TypeScript compilation gate between apply groups |
+| `Evaluate PASSED` | Verify pass | All acceptance criteria met |
+| `OVERRIDE:` | Verify fail | Individual criteria failed despite overall verdict |
+| `RAILRALPH ARRIVED` | Done | Pipeline complete |
+| `INTERRUPTED` | Stopped | Pipeline was interrupted |
 
-- Default: Korean (match the developer's language from the brief or conversation)
-- Switch language if the developer speaks in a different language
-- Log lines are forwarded as-is (they're in English from rail.sh)
+## Narration Rules
 
-### 6. Completion
+- Prefix every log line with `🚂`
+- Do NOT summarize or interpret — forward as-is
+- Do NOT add commentary between checks
+- On `ARRIVED`: show the summary and ask about artifacts
+- On error or no new lines for 5+ minutes: mention it
 
-When the pipeline finishes:
-1. Output the final summary (total sessions, log dir, artifacts)
-2. Ask if the developer wants to review any artifacts
+## On-demand Q&A
 
-## Important
-
-- Do NOT modify any files — you are read-only
-- Do NOT interfere with the pipeline — it runs independently
-- Keep your narration minimal — the log lines speak for themselves
-- If the pipeline seems stuck (no new lines for 5+ minutes), mention it
+If the developer asks a question mid-run, read the relevant artifact from `$PROJECT_DIR/openspec/changes/$CHANGE_NAME/`:
+- `verify_report.md` — evaluation results
+- `tasks.md` — implementation checklist
+- `handoff.md` — last session's handoff notes
+- `proposal.md`, `design.md` — planning artifacts
