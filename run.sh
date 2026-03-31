@@ -479,8 +479,11 @@ log "  PHASE 3: VERIFICATION & CLOSING"
 log "=========================================="
 
 # Set skills for verify phase
+# Note: skills are injected into --append-system-prompt which counts against
+# the context window. Verify sessions read many files and run tests, so they
+# need more context headroom. Skip skills by default to avoid "Prompt is too long".
 export HARNESS_SKILLS
-HARNESS_SKILLS=$(detect_skills "verify" "")
+HARNESS_SKILLS="${VERIFY_SKILLS:-}"
 log "Skills for verify: ${HARNESS_SKILLS:-none}"
 
 # Fix H1: verify with feedback loop — abort if verify fails after retries
@@ -529,16 +532,34 @@ if command -v gh &>/dev/null; then
     REPO_NAME=$(cd "$PROJECT_DIR" && gh repo view --json name -q '.name' 2>/dev/null || true)
 
     if [ -n "$REPO_OWNER" ] && [ -n "$REPO_NAME" ]; then
-      # Check for comments + non-approved reviews
-      COMMENT_COUNT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/comments" --jq 'length' 2>/dev/null || echo "0")
-      REVIEW_COUNT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/reviews" --jq '[.[] | select(.state != "APPROVED")] | length' 2>/dev/null || echo "0")
+      # Wait for automated reviewers (Copilot, CodeRabbit, etc.) to post comments.
+      # Poll every 30s for up to REVIEW_WAIT_TIMEOUT seconds (default: 180s / 3 min).
+      REVIEW_WAIT_TIMEOUT="${REVIEW_WAIT_TIMEOUT:-180}"
+      REVIEW_POLL_INTERVAL="${REVIEW_POLL_INTERVAL:-30}"
+      TOTAL_FEEDBACK=0
+      elapsed=0
 
-      TOTAL_FEEDBACK=$((COMMENT_COUNT + REVIEW_COUNT))
+      log "Waiting up to ${REVIEW_WAIT_TIMEOUT}s for PR #$PR_NUMBER review comments..."
+      while [ "$elapsed" -lt "$REVIEW_WAIT_TIMEOUT" ]; do
+        sleep "$REVIEW_POLL_INTERVAL"
+        elapsed=$((elapsed + REVIEW_POLL_INTERVAL))
+
+        COMMENT_COUNT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/comments" --jq 'length' 2>/dev/null || echo "0")
+        REVIEW_COUNT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER/reviews" --jq '[.[] | select(.state != "APPROVED")] | length' 2>/dev/null || echo "0")
+        TOTAL_FEEDBACK=$((COMMENT_COUNT + REVIEW_COUNT))
+
+        if [ "$TOTAL_FEEDBACK" -gt 0 ]; then
+          log "PR #$PR_NUMBER has $COMMENT_COUNT comments + $REVIEW_COUNT non-approved reviews (after ${elapsed}s)"
+          break
+        fi
+        log "No comments yet (${elapsed}s / ${REVIEW_WAIT_TIMEOUT}s)..."
+      done
+
       if [ "$TOTAL_FEEDBACK" -gt 0 ]; then
-        log "PR #$PR_NUMBER has $COMMENT_COUNT comments + $REVIEW_COUNT non-approved reviews — running review-response"
+        log "Running review-response for PR #$PR_NUMBER"
         run_session "review-response" "$MODEL_APPLY"
       else
-        log "SKIP: PR #$PR_NUMBER has no review comments"
+        log "SKIP: PR #$PR_NUMBER has no review comments after ${REVIEW_WAIT_TIMEOUT}s"
       fi
     else
       log "WARNING: Could not determine repo owner/name — skipping review-response"

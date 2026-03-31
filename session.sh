@@ -16,8 +16,18 @@ if ! command -v timeout &>/dev/null; then
   if command -v gtimeout &>/dev/null; then
     timeout() { gtimeout "$@"; }
   else
-    echo "WARNING: 'timeout' not found. Sessions will run without timeout." >&2
-    timeout() { shift; "$@"; }
+    # Fallback: perl alarm enforces real timeout on macOS (exit 124 matches GNU timeout)
+    timeout() {
+      local duration="$1"; shift
+      duration="${duration%s}"  # strip optional trailing 's'
+      perl -e '
+        use strict; use warnings;
+        my $t = shift @ARGV;
+        $SIG{ALRM} = sub { exit 124 };
+        alarm $t;
+        exec @ARGV or exit 127;
+      ' "$duration" "$@"
+    }
   fi
 fi
 
@@ -148,6 +158,8 @@ timeout "$SESSION_TIMEOUT" claude -p "$USER_PROMPT" \
   --model "$MODEL" \
   --max-budget-usd "$MAX_SESSION_BUDGET" \
   --no-session-persistence \
+  --strict-mcp-config \
+  --disable-slash-commands \
   2>&1 | tee "$LOG_DIR/${PHASE}-${LOG_SUFFIX}.log"
 EXIT_CODE=${PIPESTATUS[0]}
 set -e
