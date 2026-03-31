@@ -14,6 +14,67 @@ RailRalph is designed for **high-fidelity, long-running agent workflows** where 
 
 Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) artifacts for specification-driven development.
 
+## The Journey
+
+```
+DEPARTURE: railralph my-feature 'add user auth'
+     │
+     ▼
+┌─ LINE 1: PLANNING ──────────────────────────────┐
+│                                                   │
+│  Station 1: Proposal        ● ━━▶                │
+│  Station 2: Proposal Review ● ━━▶                │
+│  Station 3: Design          ● ━━▶                │
+│  Station 4: Design Review   ● ━━▶                │
+│  Station 5: Specs           ● ━━▶                │
+│  Station 6: Tasks           ● ━━▶                │
+│                                                   │
+│  Cargo loaded: specs, tasks.md, acceptance criteria│
+└───────────────────────────────────────────────────┘
+     │
+     ▼
+┌─ LINE 2: APPLY ─────────────────────────────────┐
+│                                                   │
+│  Station 7:  Task Group 1   ● ━━▶ 🚧 tsc gate   │
+│  Station 8:  Task Group 2   ● ━━▶ 🚧 tsc gate   │
+│  Station 9:  Task Group 3   ● ━━▶ 🚧 tsc gate   │
+│  ...                                              │
+│                                                   │
+│  ⚠️ Gate blocked? → retry at same station         │
+└───────────────────────────────────────────────────┘
+     │
+     ▼
+┌─ LINE 3: ROUNDHOUSE (evaluate → fix loop) ──────┐
+│                                                   │
+│       ┌──── Inspector (opus, read-only) ◀──┐     │
+│       │     Tests every AC with evidence    │     │
+│       ▼                                     │     │
+│    All pass? ── yes ──▶ EXIT ROUNDHOUSE     │     │
+│       │                                     │     │
+│       no                                    │     │
+│       ▼                                     │     │
+│    Mechanic (sonnet, full tools) ───────────┘     │
+│    Fixes only what the inspector flagged           │
+│                                                   │
+└───────────────────────────────────────────────────┘
+     │
+     ▼
+┌─ LINE 4: CLOSING ───────────────────────────────┐
+│                                                   │
+│  Station: Spec Alignment    ● ━━▶                │
+│  Station: Pull Request      ● ━━▶                │
+│  Station: Review Response   ● ━━▶                │
+│  Station: Final Alignment   ● ━━▶                │
+│  Station: Retro             ● ━━▶                │
+│                                                   │
+└───────────────────────────────────────────────────┘
+     │
+     ▼
+ARRIVAL: merged PR + full audit trail
+```
+
+Each **station** is a single `claude -p` session. **Gates** are validation checkpoints (`tsc --noEmit`, test suites) that must pass before the train proceeds. The **roundhouse** is where the inspector (opus, read-only) judges the mechanic's (sonnet) work — a different model evaluates a different model's code.
+
 ## Prerequisites
 
 - `claude` CLI (Claude Code)
