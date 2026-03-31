@@ -7,7 +7,7 @@ check:
 	./install.sh --check-only
 
 test:
-	./tests/test-harness.sh
+	./tests/test-rail.sh
 
 uninstall:
 	rm -f "$${HOME}/.local/bin/railralph"

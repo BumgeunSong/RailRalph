@@ -11,7 +11,7 @@ set -euo pipefail
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 #
 
-HARNESS_DIR="$(cd -P "$(dirname "$0")" && pwd)"
+RAIL_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 resolve_project_dir() {
   if [ -n "${RAILRALPH_PROJECT_DIR:-}" ]; then
@@ -95,7 +95,7 @@ chmod 700 "$LOG_DIR"
 CHECKPOINT_FILE="$LOG_DIR/checkpoint"
 
 log() {
-  echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_DIR/harness.log"
+  echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_DIR/rail.log"
 }
 
 [ -f "$CONFIG_FILE" ] && log "Loaded config from $CONFIG_FILE"
@@ -122,7 +122,7 @@ checkpoint_save() {
 git_snapshot() {
   # Create a lightweight tag before a session so we can rollback on failure
   local label="$1"
-  local tag="harness/${CHANGE_NAME}/${label}"
+  local tag="rail/${CHANGE_NAME}/${label}"
   (cd "$PROJECT_DIR" && git tag -f "$tag" HEAD 2>/dev/null) || true
   log "GIT SNAPSHOT: $tag"
 }
@@ -130,10 +130,10 @@ git_snapshot() {
 git_rollback() {
   # Rollback to pre-session snapshot: reset HEAD and discard changes
   local label="$1"
-  local tag="harness/${CHANGE_NAME}/${label}"
+  local tag="rail/${CHANGE_NAME}/${label}"
   if (cd "$PROJECT_DIR" && git tag -l "$tag" | grep -q .); then
     log "GIT ROLLBACK: reverting to $tag"
-    (cd "$PROJECT_DIR" && git reset --hard "$tag" && git clean -fd) 2>&1 | tee -a "$LOG_DIR/harness.log"
+    (cd "$PROJECT_DIR" && git reset --hard "$tag" && git clean -fd) 2>&1 | tee -a "$LOG_DIR/rail.log"
   else
     log "GIT ROLLBACK: tag $tag not found, skipping"
   fi
@@ -147,14 +147,14 @@ git_ensure_committed() {
   status=$(cd "$PROJECT_DIR" && git status --porcelain)
   if [ -n "$status" ]; then
     log "GIT SAFETY: Agent left uncommitted changes after '$phase' — creating safety commit"
-    (cd "$PROJECT_DIR" && git add -A -- ${SAFETY_COMMIT_PATHS:-openspec/} && git commit -m "railralph($CHANGE_NAME): safety commit after $phase [uncommitted work]") 2>&1 | tee -a "$LOG_DIR/harness.log" || true
+    (cd "$PROJECT_DIR" && git add -A -- ${SAFETY_COMMIT_PATHS:-openspec/} && git commit -m "railralph($CHANGE_NAME): safety commit after $phase [uncommitted work]") 2>&1 | tee -a "$LOG_DIR/rail.log" || true
   fi
 }
 
 git_cleanup_tags() {
   # Remove harness snapshot tags at the end of a successful run
   log "GIT CLEANUP: removing harness snapshot tags"
-  (cd "$PROJECT_DIR" && git tag -l "harness/${CHANGE_NAME}/*" | xargs -r git tag -d) 2>/dev/null || true
+  (cd "$PROJECT_DIR" && git tag -l "rail/${CHANGE_NAME}/*" | xargs -r git tag -d) 2>/dev/null || true
 }
 
 # --- Session Runner ---
@@ -178,7 +178,7 @@ run_session() {
   local start_time exit_code=0
   start_time=$(date +%s)
 
-  "$HARNESS_DIR/station.sh" \
+  "$RAIL_DIR/station.sh" \
     "$CHANGE_NAME" \
     "$phase" \
     "$model" \
@@ -255,7 +255,7 @@ get_section_unchecked() {
 }
 
 # --- Skill Detection ---
-MATCH_SKILLS="$HARNESS_DIR/match-skills.sh"
+MATCH_SKILLS="$RAIL_DIR/match-skills.sh"
 
 # Search keywords to scan for in task content
 SKILL_KEYWORDS="${SKILL_KEYWORDS:-test spec coverage api/ fetch endpoint type interface}"
@@ -316,7 +316,7 @@ log ""
 CHANGE_DIR="$PROJECT_DIR/openspec/changes/$CHANGE_NAME"
 if [ ! -d "$CHANGE_DIR" ]; then
   log "Creating openspec change folder..."
-  (cd "$PROJECT_DIR" && openspec new change "$CHANGE_NAME" --schema "${OPENSPEC_SCHEMA:-eddys-flow}") 2>&1 | tee -a "$LOG_DIR/harness.log"
+  (cd "$PROJECT_DIR" && openspec new change "$CHANGE_NAME" --schema "${OPENSPEC_SCHEMA:-eddys-flow}") 2>&1 | tee -a "$LOG_DIR/rail.log"
 fi
 
 # ============================================================

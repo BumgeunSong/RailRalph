@@ -8,7 +8,7 @@ set -euo pipefail
 # All context comes from the appended system prompt + files on disk.
 #
 
-HARNESS_DIR="$(cd "$(dirname "$0")" && pwd)"
+RAIL_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:?ERROR: PROJECT_DIR not set}"
 
 # --- Portability: macOS timeout shim (H8) ---
@@ -41,7 +41,7 @@ EXTRA_CONTEXT="${6:-}"
 LOG_SUFFIX="${7:-$(date +%H%M%S)}"
 
 CHANGE_DIR="$PROJECT_DIR/openspec/changes/$CHANGE_NAME"
-PROMPT_FILE="$HARNESS_DIR/prompts/${PHASE}.md"
+PROMPT_FILE="$RAIL_DIR/prompts/${PHASE}.md"
 
 if [ ! -f "$PROMPT_FILE" ]; then
   echo "ERROR: Prompt file not found: $PROMPT_FILE" >&2
@@ -68,7 +68,7 @@ if [ -n "${HARNESS_SKILLS:-}" ]; then
   for skill in "${SKILLS[@]}"; do
     # Validate skill name (prevent path traversal)
     if [[ ! "$skill" =~ $SAFE_NAME_RE ]]; then
-      echo "WARNING: Skipping unsafe skill name: $skill" >> "$LOG_DIR/harness.log"
+      echo "WARNING: Skipping unsafe skill name: $skill" >> "$LOG_DIR/rail.log"
       continue
     fi
 
@@ -103,7 +103,7 @@ if [ -n "$SKILL_CONTENT" ]; then
 
 ## Project Conventions (from skills)
 ${SKILL_CONTENT}"
-  echo "[$(date +%H:%M:%S)] SKILLS INJECTED:${INJECTED_SKILLS}" >> "$LOG_DIR/harness.log"
+  echo "[$(date +%H:%M:%S)] SKILLS INJECTED:${INJECTED_SKILLS}" >> "$LOG_DIR/rail.log"
 fi
 
 # --- Handoff Footer (D5) ---
@@ -142,7 +142,7 @@ ALLOWED_TOOLS="${ALLOWED_TOOLS:-Bash Read Write Edit Glob Grep}"
 # --- Log Session Start ---
 SESSION_START=$(date +%s)
 TIMESTAMP=$(date +%H:%M:%S)
-echo "[$TIMESTAMP] SESSION START: $PHASE (model=$MODEL)" >> "$LOG_DIR/harness.log"
+echo "[$TIMESTAMP] SESSION START: $PHASE (model=$MODEL)" >> "$LOG_DIR/rail.log"
 
 # --- Run Claude Code CLI ---
 cd "$PROJECT_DIR"
@@ -168,7 +168,7 @@ set -e
 SESSION_END=$(date +%s)
 DURATION=$((SESSION_END - SESSION_START))
 TIMESTAMP=$(date +%H:%M:%S)
-echo "[$TIMESTAMP] SESSION END: $PHASE (${DURATION}s, exit=$EXIT_CODE)" >> "$LOG_DIR/harness.log"
+echo "[$TIMESTAMP] SESSION END: $PHASE (${DURATION}s, exit=$EXIT_CODE)" >> "$LOG_DIR/rail.log"
 
 # Restrict log file permissions
 chmod 600 "$LOG_DIR/${PHASE}-${LOG_SUFFIX}.log" 2>/dev/null || true

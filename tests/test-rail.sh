@@ -2,11 +2,11 @@
 set -euo pipefail
 
 #
-# Unit tests for long-running harness functions
+# Unit tests for RailRalph pipeline functions
 #
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HARNESS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+RAIL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TEST_TMP="$(mktemp -d)"
 PROJECT_DIR="$TEST_TMP/fake-project"
 mkdir -p "$PROJECT_DIR/.git" "$PROJECT_DIR/openspec"
@@ -76,7 +76,7 @@ trap cleanup EXIT
 
 extract_functions() {
   # Source required variables
-  export HARNESS_DIR
+  export RAIL_DIR
   export PROJECT_DIR
   export LOG_DIR="$TEST_TMP/logs"
   export CHANGE_DIR="$TEST_TMP/change"
@@ -84,11 +84,11 @@ extract_functions() {
   mkdir -p "$LOG_DIR" "$CHANGE_DIR"
 
   # Define log function
-  log() { echo "[TEST] $*" >> "$LOG_DIR/harness.log"; }
+  log() { echo "[TEST] $*" >> "$LOG_DIR/rail.log"; }
 
   # Source get_section_content and get_section_unchecked
-  eval "$(sed -n '/^get_section_content()/,/^}/p' "$HARNESS_DIR/rail.sh")"
-  eval "$(sed -n '/^get_section_unchecked()/,/^}/p' "$HARNESS_DIR/rail.sh")"
+  eval "$(sed -n '/^get_section_content()/,/^}/p' "$RAIL_DIR/rail.sh")"
+  eval "$(sed -n '/^get_section_unchecked()/,/^}/p' "$RAIL_DIR/rail.sh")"
 
   # Portability: timeout shim for tests (must actually enforce timeout)
   if ! command -v timeout &>/dev/null; then
@@ -102,11 +102,11 @@ extract_functions() {
 
   # Source run_tsc_gate
   export TSC_TIMEOUT=2
-  eval "$(sed -n '/^run_tsc_gate()/,/^}/p' "$HARNESS_DIR/rail.sh")"
+  eval "$(sed -n '/^run_tsc_gate()/,/^}/p' "$RAIL_DIR/rail.sh")"
 
   # Source detect_skills and its dependencies
-  eval "$(sed -n '/^SKILL_KEYWORDS=.*{SKILL_KEYWORDS/p' "$HARNESS_DIR/rail.sh")"
-  eval "$(sed -n '/^detect_skills()/,/^}/p' "$HARNESS_DIR/rail.sh")"
+  eval "$(sed -n '/^SKILL_KEYWORDS=.*{SKILL_KEYWORDS/p' "$RAIL_DIR/rail.sh")"
+  eval "$(sed -n '/^detect_skills()/,/^}/p' "$RAIL_DIR/rail.sh")"
 }
 
 extract_functions
@@ -261,7 +261,7 @@ EOF
 
 # Create a modified match-skills.sh that uses fixture dirs
 FIXTURE_MATCH="$TEST_TMP/match-skills-fixture.sh"
-sed "s|\"\$PROJECT_DIR/.claude/skills\"|\"$FIXTURE_SKILLS\"|;s|\"\$HOME/.claude/skills\"|\"$FIXTURE_USER_SKILLS\"|" "$HARNESS_DIR/match-skills.sh" > "$FIXTURE_MATCH"
+sed "s|\"\$PROJECT_DIR/.claude/skills\"|\"$FIXTURE_SKILLS\"|;s|\"\$HOME/.claude/skills\"|\"$FIXTURE_USER_SKILLS\"|" "$RAIL_DIR/match-skills.sh" > "$FIXTURE_MATCH"
 chmod +x "$FIXTURE_MATCH"
 
 result=$(PROJECT_DIR="$TEST_TMP/fixture-project" "$FIXTURE_MATCH" "component")
@@ -396,7 +396,7 @@ echo ""
 echo "=== T.5b: detect_skills() ==="
 
 # Set MATCH_SKILLS to the real script for integration
-MATCH_SKILLS="$HARNESS_DIR/match-skills.sh"
+MATCH_SKILLS="$RAIL_DIR/match-skills.sh"
 
 # Phase defaults — apply-group
 result=$(detect_skills "apply-group" "")
@@ -508,11 +508,11 @@ chmod +x "$MOCK_CLAUDE_DIR/claude"
 MOCK_PROJECT="$TEST_TMP/mock-project-t10"
 mkdir -p "$MOCK_PROJECT/.git" "$MOCK_PROJECT/openspec/changes/test-change"
 
-# Capture path to real station.sh before subshell (station.sh self-resolves HARNESS_DIR from dirname $0)
-REAL_SESSION_SH="$HARNESS_DIR/station.sh"
+# Capture path to real station.sh before subshell (station.sh self-resolves RAIL_DIR from dirname $0)
+REAL_SESSION_SH="$RAIL_DIR/station.sh"
 
 # Guard: evaluate.md must exist (created in Task 2)
-if [ ! -f "$HARNESS_DIR/prompts/evaluate.md" ]; then
+if [ ! -f "$RAIL_DIR/prompts/evaluate.md" ]; then
   echo "  SKIP: T.10 requires prompts/evaluate.md (run after Task 2)"
 else
   # Run station.sh with restricted ALLOWED_TOOLS
